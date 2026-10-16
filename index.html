@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather Chatbot</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      color: #fff;
+      background: linear-gradient(135deg, #172554, #2563eb, #06b6d4);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .app {
+      width: 100%;
+      max-width: 520px;
+      background: rgba(10, 20, 50, 0.78);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 20px 55px rgba(0,0,0,.25);
+    }
+    header { padding: 24px; text-align: center; }
+    header h1 { margin: 0 0 8px; font-size: 1.8rem; }
+    header p { margin: 0; color: #dbeafe; }
+    #chat {
+      height: 380px;
+      overflow-y: auto;
+      padding: 18px;
+      background: rgba(255,255,255,.06);
+    }
+    .message {
+      max-width: 85%;
+      padding: 12px 15px;
+      margin: 10px 0;
+      border-radius: 16px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .bot { background: #e0f2fe; color: #0f172a; border-bottom-left-radius: 4px; }
+    .user { background: #2563eb; color: white; margin-left: auto; border-bottom-right-radius: 4px; }
+    form {
+      display: flex;
+      gap: 10px;
+      padding: 16px;
+      background: rgba(0,0,0,.15);
+    }
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 13px 15px;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 12px;
+      font-size: 1rem;
+      outline: none;
+    }
+    button {
+      padding: 0 18px;
+      border: 0;
+      border-radius: 12px;
+      background: #38bdf8;
+      color: #082f49;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled, input:disabled { opacity: .6; cursor: wait; }
+    .hint { padding: 0 16px 16px; margin: 0; color: #dbeafe; font-size: .82rem; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>🌦️ Weather Chatbot</h1>
+      <p>Ask about the current weather in a city</p>
+    </header>
+
+    <section id="chat" aria-live="polite" aria-label="Chat messages">
+      <div class="message bot">Hello! Enter a city, for example: “Weather in Pune”.</div>
+    </section>
+
+    <form id="chatForm">
+      <input id="userInput" type="text" placeholder="Type a city..." autocomplete="off" required />
+      <button id="sendButton" type="submit">Send</button>
+    </form>
+    <p class="hint">Example: Weather in Mumbai or London</p>
+  </main>
+
+  <script>
+    // Add your OpenWeatherMap API key here for local testing.
+    // Do not commit a real key to a public GitHub repository.
+    const OPENWEATHER_API_KEY = "YOUR_API_KEY";
+
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("chatForm");
+    const input = document.getElementById("userInput");
+    const button = document.getElementById("sendButton");
+
+    function addMessage(text, type) {
+      const message = document.createElement("div");
+      message.className = `message ${type}`;
+      message.textContent = text;
+      chat.appendChild(message);
+      chat.scrollTop = chat.scrollHeight;
+      return message;
+    }
+
+    function getCity(text) {
+      return text
+        .trim()
+        .replace(/^(what('?s| is) the )?weather( like)?( in| for)?\s*/i, "")
+        .replace(/\s+(today|now|currently)$/i, "")
+        .trim();
+    }
+
+    async function getWeather(city) {
+      const url = new URL("https://api.openweathermap.org/data/2.5/weather");
+      url.search = new URLSearchParams({
+        q: city,
+        appid: OPENWEATHER_API_KEY,
+        units: "metric"
+      });
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 404) throw new Error("I couldn't find that city. Check the spelling and try again.");
+        if (response.status === 401) throw new Error("The API key is invalid or not active yet. Check your OpenWeatherMap key.");
+        throw new Error(data.message || "Weather service is unavailable. Please try again.");
+      }
+
+      return `${data.name}, ${data.sys.country}
+🌤️ ${data.weather[0].description}
+🌡️ Temperature: ${Math.round(data.main.temp)}°C
+🤗 Feels like: ${Math.round(data.main.feels_like)}°C
+💧 Humidity: ${data.main.humidity}%
+💨 Wind: ${data.wind.speed} m/s`;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const request = input.value.trim();
+      if (!request) return;
+
+      addMessage(request, "user");
+      input.value = "";
+      input.disabled = true;
+      button.disabled = true;
+
+      const loading = addMessage("Checking the weather…", "bot");
+
+      try {
+        if (OPENWEATHER_API_KEY === "YOUR_API_KEY") {
+          throw new Error("Add your OpenWeatherMap API key in the code before using weather search.");
+        }
+
+        const city = getCity(request);
+        if (!city) throw new Error("Please enter a city name.");
+
+        const answer = await getWeather(city);
+        loading.textContent = answer;
+      } catch (error) {
+        loading.textContent = error.message || "Something went wrong. Please try again.";
+      } finally {
+        input.disabled = false;
+        button.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
